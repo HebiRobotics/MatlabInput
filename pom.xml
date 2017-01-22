@@ -6,10 +6,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>us.hebi.matlab</groupId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <artifactId>joystick</artifactId>
 
-    <name>HebiInput</name>
+    <name>hebi-joystick</name>
     <description>MATLAB utilities for device input</description>
 
     <licenses>
@@ -34,7 +34,7 @@
     </scm>
 
     <properties>
-        <releaseName>hebi-${project.artifactId}-${project.version}</releaseName>
+        <releaseName>${project.name}-${project.version}</releaseName>
 
         <!-- Dependency versions. KEEP IN ALPHABETICAL ORDER-->
         <junit.version>4.11</junit.version>
