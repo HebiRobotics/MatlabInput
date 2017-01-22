@@ -47,5 +47,5 @@ mvn package
 Create a release
 
 ```bash
-mvn package -DreleaseName="2017-01-22-hebi-joystick-1.0"
+mvn package -DreleaseName="hebi-joystick-1.0"
 ```
