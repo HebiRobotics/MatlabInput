@@ -1,4 +1,4 @@
-classdef HebiJoystick
+classdef (Sealed) HebiJoystick < handle
     % HebiJoystick creates a joystick object
     %
     %   HebiJoystick is an alternative to MATLAB's built-in 'vrjoystick'
@@ -19,7 +19,7 @@ classdef HebiJoystick
     %       button   - reads the status of selected buttons
     %       pov      - reads the status of selected POV (point of view)
     %       caps     - returns a structure of joystick capabilities
-    %       close    - kept for compatibility reasons (has no effect)
+    %       close    - closes and invalidates the joystick object
     %       force    - applies force feedback to selected axes
     %
     %   Example:
@@ -95,8 +95,8 @@ classdef HebiJoystick
             % reads the status of axes, buttons, and POVs
             %
             % Example
-            %	joy = HebiJoystick(1);
-            %	[axes, buttons, povs] = read(joy);
+            %   joy = HebiJoystick(1);
+            %   [axes, buttons, povs] = read(joy);
             varargout = read(this.joy);
         end
         
@@ -129,8 +129,9 @@ classdef HebiJoystick
             out = struct(caps(this.joy));
         end
         
-        function [] = close(~)
-            % kept for compatibility reasons (has no effect)
+        function [] = close(this)
+            % closes and invalidates the joystick object
+            close(this.joy);
         end
         
         function [] = force(this, indices, value)
@@ -139,5 +140,47 @@ classdef HebiJoystick
         end
         
     end
+
+    % Hide inherited methods (handle) from auto-complete
+    % and docs
+     methods(Access = public, Hidden = true)
+
+        function [] = delete(this)
+            %destructor disposes this instance
+            close(this);
+        end
+
+        function varargout = addlistener(varargin)
+            varargout{:} = addlistener@handle(varargin{:});
+        end
+        function varargout = eq(varargin)
+            varargout{:} = eq@handle(varargin{:});
+        end
+        function varargout = findobj(varargin)
+            varargout{:} = findobj@handle(varargin{:});
+        end
+        function varargout = findprop(varargin)
+            varargout{:} = findprop@handle(varargin{:});
+        end
+        function varargout = ge(varargin)
+            varargout{:} = ge@handle(varargin{:});
+        end
+        function varargout = gt(varargin)
+            varargout{:} = gt@handle(varargin{:});
+        end
+        function varargout = le(varargin)
+            varargout{:} = le@handle(varargin{:});
+        end
+        function varargout = lt(varargin)
+            varargout{:} = lt@handle(varargin{:});
+        end
+        function varargout = ne(varargin)
+            varargout{:} = ne@handle(varargin{:});
+        end
+        function varargout = notify(varargin)
+            varargout{:} = notify@handle(varargin{:});
+        end
+
+        end
     
 end

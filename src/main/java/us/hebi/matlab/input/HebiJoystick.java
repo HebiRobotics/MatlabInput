@@ -6,6 +6,7 @@ import net.java.games.input.Component.POV;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.*;
 
 /**
  * Backing class for custom joystick implementation. See original
@@ -68,6 +69,10 @@ public class HebiJoystick {
                 throw new MatlabError("Index out of range");
             rumblers[javaIndex].rumble(value.length == 1 ? value[0] : value[i]);
         }
+    }
+
+    public void close() {
+        JInputUtils.closeNativeResource(joystick);
     }
 
     private static class CapabilityStruct {
@@ -161,15 +166,51 @@ public class HebiJoystick {
         return component.getIdentifier() instanceof Identifier.Button;
     }
 
-    private static Controller getJoystick(int matlabId) {
-        ControllerEnvironment environment = JInputUtils.createDefaultEnvironment();
-        for (Controller controller : environment.getControllers()) {
-            if (isJoystick(controller.getType()) && --matlabId == 0) {
-                return controller;
+    private static Controller getJoystick(final int matlabId) {
+
+        // Find controllers asynchronously so that we can recover from getting stuck if
+        // something goes wrong in native code.
+        Future<Controller> getJoystickFuture = executor.submit(new Callable<Controller>() {
+            int id = matlabId;
+
+            @Override
+            public Controller call() throws Exception {
+                ControllerEnvironment environment = JInputUtils.createDefaultEnvironment();
+                for (Controller controller : environment.getControllers()) {
+                    if (isJoystick(controller.getType()) && --id == 0) {
+                        return controller;
+                    }
+                }
+                return null;
             }
+        });
+
+        try {
+
+            Controller controller = getJoystickFuture.get(5, TimeUnit.SECONDS);
+            if (controller == null)
+                throw new MatlabError("Joystick is not connected.");
+            return controller;
+
+        } catch (InterruptedException e) {
+        } catch (ExecutionException e) {
+        } catch (TimeoutException e) {
+        } finally {
+            getJoystickFuture.cancel(true);
         }
-        throw new MatlabError("Joystick is not connected.");
+        throw new MatlabError("Controller search timed out. Limit may have been reached.");
+
     }
+
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("HebiJoystick Controller Lookup");
+            return t;
+        }
+    });
 
     private final Controller joystick;
 

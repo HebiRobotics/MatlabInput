@@ -1,9 +1,12 @@
 package us.hebi.matlab.input;
 
+import net.java.games.input.Controller;
 import net.java.games.input.ControllerEnvironment;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.logging.Handler;
@@ -91,6 +94,57 @@ public class JInputUtils {
         }
         throw new AssertionError("Could not create controller environment");
 
+    }
+
+    /**
+     * Unfortunately controllers don't have a public release method. To work around
+     * this limitation we need to reflectively close them. This is brittle and hard
+     * to test, but there doesn't seem to be another way. Also, some controllers
+     * don't have a way to close native resources at all.
+     */
+    static void closeNativeResource(Controller controller) {
+
+        try {
+
+            if (isAssignableFrom("DIAbstractController", controller)) {
+
+                getDeviceAndRelease(controller, "device", "release"); // DirectInput
+
+            } else if (isAssignableFrom("OSXAbstractController", controller)) {
+
+                getDeviceAndRelease(controller, "queue", "release"); // OSX
+
+            } else if (isAssignableFrom("LinuxAbstractController", controller)
+                    || isAssignableFrom("LinuxJoystickAbstractController", controller)) {
+
+                getDeviceAndRelease(controller, "device", "close"); // Linux
+
+            } else if (isAssignableFrom("LinuxCombinedController", controller)) {
+
+                closeNativeResource((Controller) controller.getClass().getDeclaredField("eventController").get(controller));
+                closeNativeResource((Controller) controller.getClass().getDeclaredField("joystickController").get(controller));
+
+            } else {
+                System.err.println("Close not implemented for: " + controller.getClass().getSimpleName());
+            }
+
+        } catch (Exception e) {
+            System.err.println("Failed to close device. Message: " + e.getMessage());
+        }
+
+    }
+
+    private static boolean isAssignableFrom(String simpleClassName, Object object) throws ClassNotFoundException {
+        return Class.forName("net.java.games.input." + simpleClassName).isAssignableFrom(object.getClass());
+    }
+
+    private static void getDeviceAndRelease(Controller controller, String deviceFieldName, String releaseMethodName) throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+        Field deviceField = controller.getClass().getDeclaredField(deviceFieldName);
+        deviceField.setAccessible(true);
+        Object nativeDevice = deviceField.get(controller);
+        Method releaseMethod = nativeDevice.getClass().getMethod(releaseMethodName);
+        releaseMethod.setAccessible(true);
+        releaseMethod.invoke(nativeDevice);
     }
 
 }
