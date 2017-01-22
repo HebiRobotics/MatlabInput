@@ -1,9 +1,11 @@
 package us.hebi.matlab.input;
 
-import net.java.games.input.*;
+import net.java.games.input.Component;
 import net.java.games.input.Component.Identifier;
 import net.java.games.input.Component.POV;
-import us.hebi.matlab.input.JInputUtils.ControllerWithHooks;
+import net.java.games.input.Event;
+import net.java.games.input.EventQueue;
+import net.java.games.input.Rumbler;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -74,7 +76,7 @@ public class HebiJoystick {
     }
 
     public void close() {
-        nativeControllerWithHooks.close();
+        joystick.close();
     }
 
     private static class CapabilityStruct {
@@ -107,8 +109,7 @@ public class HebiJoystick {
     public HebiJoystick(int matlabId) {
 
         // Select joystick
-        nativeControllerWithHooks = getJoystick(matlabId);
-        joystick = nativeControllerWithHooks.getController();
+        joystick = getJoystick(matlabId);
 
         // Create lookup tables
         for (Component component : joystick.getComponents()) {
@@ -165,29 +166,21 @@ public class HebiJoystick {
         return component.getIdentifier() instanceof Identifier.Button;
     }
 
-    private static ControllerWithHooks getJoystick(int matlabId) {
-        ControllerWithHooks controllerWithHooks = null;
+    private static CloseableController getJoystick(int matlabId) {
+        CloseableController joystick = null;
         try {
-            controllerWithHooks = JInputUtils.getJoystickOrTimeout(matlabId, 500, TimeUnit.SECONDS);
-            if (controllerWithHooks.getController() != null)
-                return controllerWithHooks;
-
+            joystick = JInputUtils.getJoystickOrTimeout(matlabId, 5, TimeUnit.SECONDS);
+            if (joystick != null)
+                return joystick;
         } catch (TimeoutException e) {
             throw new MatlabError("Controller search timed out.");
         } catch (Exception e) {
             throw new MatlabError("Could not get joystick. Message: " + e.getMessage());
-        } finally {
-            // Make sure all invalid cases get cleaned up immediately
-            if (controllerWithHooks != null && controllerWithHooks.getController() == null) {
-                controllerWithHooks.close();
-            }
         }
         throw new MatlabError("Joystick is not connected.");
-
     }
 
-    private final ControllerWithHooks nativeControllerWithHooks;
-    private final Controller joystick;
+    private final CloseableController joystick;
 
     private final HashMap<Component, Integer> buttonIndex = new HashMap<Component, Integer>();
     private final HashMap<Component, Integer> axisIndex = new HashMap<Component, Integer>();

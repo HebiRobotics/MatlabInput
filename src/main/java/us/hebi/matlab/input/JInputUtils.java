@@ -3,15 +3,16 @@ package us.hebi.matlab.input;
 import net.java.games.input.Controller;
 import net.java.games.input.ControllerEnvironment;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -110,6 +111,7 @@ public class JInputUtils {
      * don't have a way to close native resources at all.
      */
     static void closeNativeDevice(Controller controller) {
+        if (controller == null)  throw new IllegalArgumentException("null argument");
 
         try {
 
@@ -154,21 +156,38 @@ public class JInputUtils {
         releaseMethod.invoke(nativeDevice);
     }
 
-    /**
-     * Some environments add shutdown hooks that would cause a memory leak. We
-     * also find controllers asynchronously so that we can recover from getting stuck
-     * if something goes wrong in native code.
-     */
-    public static ControllerWithHooks getJoystickOrTimeout(final int matlabId, long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    static void runShutdownHooks(Collection<Thread> hooks) {
+        if (hooks == null) throw new IllegalArgumentException("null argument");
 
-        Future<ControllerWithHooks> getJoystickFuture = lookupExecutor.submit(new Callable<ControllerWithHooks>() {
+        for (Thread hook : hooks) {
+            hook.start();
+        }
+        for (Thread hook : hooks) {
+            try {
+                hook.join(1000);
+            } catch (InterruptedException e) {
+                System.err.println("Closing native resource timed out");
+            }
+        }
+    }
+
+    /**
+     * Some environments add shutdown hooks that would cause the environments to never be cleaned
+     * up by GC. To avoid this, we reflectively remove shutdown hooks right after they were added.
+     * <p>
+     * Native environments also sometimes get stuck, so we do the call asynchronously so that we can
+     * recover via timeouts.
+     */
+    public static CloseableController getJoystickOrTimeout(final int matlabId, long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+
+        Future<CloseableController> getJoystickFuture = lookupExecutor.submit(new Callable<CloseableController>() {
             int id = matlabId; // 1 indexed
 
             @Override
-            public ControllerWithHooks call() throws Exception {
+            public CloseableController call() throws Exception {
 
                 Controller[] controllers;
-                List<Thread> addedHooks;
+                List<Thread> addedHooks = new ArrayList<Thread>(16);
 
                 // Create environment and remove any shutdown hooks that were added
                 Class clazz = Class.forName("java.lang.ApplicationShutdownHooks");
@@ -183,7 +202,7 @@ public class JInputUtils {
                     controllers = JInputUtils.createDefaultEnvironment().getControllers();
 
                     // Get all newly added hooks
-                    addedHooks = new ArrayList<Thread>(hooks.keySet());
+                    addedHooks.addAll(hooks.keySet());
                     addedHooks.removeAll(previousHooks);
 
                     // Remove new hooks from app shutdown
@@ -197,10 +216,13 @@ public class JInputUtils {
                 // Find controller
                 for (Controller controller : controllers) {
                     if (isJoystick(controller.getType()) && --id == 0) {
-                        return new ControllerWithHooks(controller, addedHooks);
+                        return new CloseableController(controller, addedHooks);
                     }
                 }
-                return new ControllerWithHooks(null, addedHooks);
+
+                // Run shutdown hooks in case controller was not found
+                runShutdownHooks(addedHooks);
+                return null;
 
             }
         });
@@ -213,7 +235,10 @@ public class JInputUtils {
     }
 
     private static boolean isJoystick(Controller.Type type) {
-        return type == Controller.Type.GAMEPAD || type == Controller.Type.STICK;
+        return type == Controller.Type.GAMEPAD ||
+                type == Controller.Type.STICK ||
+                type == Controller.Type.FINGERSTICK ||
+                type == Controller.Type.WHEEL;
     }
 
     private static final ExecutorService lookupExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
@@ -225,43 +250,5 @@ public class JInputUtils {
             return t;
         }
     });
-
-    static class ControllerWithHooks implements Closeable {
-        ControllerWithHooks(Controller controller, Collection<Thread> shutdownHooks) {
-            this.controller = controller;
-            this.shutdownHooks = shutdownHooks;
-        }
-
-        public Controller getController() {
-            return controller;
-        }
-
-        private final Controller controller;
-        private final Collection<Thread> shutdownHooks;
-        private boolean isClosed = false;
-
-        @Override
-        public synchronized void close() {
-            if (isClosed) return;
-            isClosed = true;
-
-            // Run environment shutdown hooks
-            for (Thread hook : shutdownHooks) {
-                hook.start();
-            }
-            for (Thread hook : shutdownHooks) {
-                try {
-                    hook.join(1000);
-                } catch (InterruptedException e) {
-                    System.err.println("Environment shutdown timed out");
-                }
-            }
-
-            // Release native device
-            if (controller != null) {
-                closeNativeDevice(controller);
-            }
-        }
-    }
 
 }
