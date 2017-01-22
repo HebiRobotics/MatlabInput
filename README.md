@@ -7,17 +7,19 @@ HebiJoystick is joystick input library for MATLAB that serves as a mostly drop-i
 * The order of axes and buttons may be different from vrjoystick
 * The order of axes and buttons may differ between operating systems
 * There is a maximum number of events that can occur between reads. If reads don't happen frequently enough, the returned state may not match the real physical state. A polling rate of about once per second should be sufficient for the default settings.
-* The underlying Java library is typically loaded at the first call. However, if you are using other Java libraries (e.g. [HebiCam](https://github.com/HebiRobotics/HebiCam) or the [Hebi API](http://hebirobotics.com/matlab)) it is sometimes necessary to load libraries beforehand. You can do this by manually calling loadLibs.
-
-```matlab
-HebiJoystick.loadLibs();
-```
 
 ## Installation
 
 * Download the [latest release](https://github.com/HebiRobotics/HebiJoystick/releases)
 * Extract the .zip file into a folder of your choice
 * Add the unzipped files to the [MATLAB path](http://www.mathworks.com/help/matlab/ref/path.html)
+
+* The underlying libraries are typically loaded automatically at the first call. However, if you are using other Java libraries, e.g., 
+[HebiCam](https://github.com/HebiRobotics/HebiCam) or the [Hebi API](http://hebirobotics.com/matlab), it is better to load all libraries before instantiating any objects.
+
+```matlab
+HebiJoystick.loadLibs();
+```
 
 ## Usage
 
