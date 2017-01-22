@@ -33,5 +33,19 @@ See [vrjoystick](https://www.mathworks.com/help/sl3d/vrjoystick.html) documentat
 
 ![comparison](https://github.com/HebiRobotics/HebiJoystick/raw/resources/comparison.png)
 
+## Building from source
 
+Install [Apache Maven](http://maven.apache.org/install.html)
 
+Build the default snapshot
+
+```bash
+git clone https://github.com/HebiRobotics/HebiJoystick.git
+mvn package
+```
+
+Create a release
+
+```bash
+mvn package -DreleaseName="2017-01-22-hebi-joystick-1.0"
+```
