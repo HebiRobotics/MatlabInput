@@ -3,10 +3,12 @@ package us.hebi.matlab.input;
 import net.java.games.input.*;
 import net.java.games.input.Component.Identifier;
 import net.java.games.input.Component.POV;
+import us.hebi.matlab.input.JInputUtils.ControllerWithHooks;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.concurrent.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Backing class for custom joystick implementation. See original
@@ -72,7 +74,7 @@ public class HebiJoystick {
     }
 
     public void close() {
-        JInputUtils.closeNativeResource(joystick);
+        nativeControllerWithHooks.close();
     }
 
     private static class CapabilityStruct {
@@ -105,7 +107,8 @@ public class HebiJoystick {
     public HebiJoystick(int matlabId) {
 
         // Select joystick
-        joystick = getJoystick(matlabId);
+        nativeControllerWithHooks = getJoystick(matlabId);
+        joystick = nativeControllerWithHooks.getController();
 
         // Create lookup tables
         for (Component component : joystick.getComponents()) {
@@ -150,10 +153,6 @@ public class HebiJoystick {
         return -1;
     }
 
-    private static boolean isJoystick(Controller.Type type) {
-        return type == Controller.Type.GAMEPAD || type == Controller.Type.STICK;
-    }
-
     private static boolean isPOV(Component component) {
         return Identifier.Axis.POV.equals(component.getIdentifier());
     }
@@ -166,52 +165,28 @@ public class HebiJoystick {
         return component.getIdentifier() instanceof Identifier.Button;
     }
 
-    private static Controller getJoystick(final int matlabId) {
-
-        // Find controllers asynchronously so that we can recover from getting stuck if
-        // something goes wrong in native code.
-        Future<Controller> getJoystickFuture = executor.submit(new Callable<Controller>() {
-            int id = matlabId;
-
-            @Override
-            public Controller call() throws Exception {
-                ControllerEnvironment environment = JInputUtils.createDefaultEnvironment();
-                for (Controller controller : environment.getControllers()) {
-                    if (isJoystick(controller.getType()) && --id == 0) {
-                        return controller;
-                    }
-                }
-                return null;
-            }
-        });
-
+    private static ControllerWithHooks getJoystick(int matlabId) {
+        ControllerWithHooks controllerWithHooks = null;
         try {
+            controllerWithHooks = JInputUtils.getJoystickOrTimeout(matlabId, 500, TimeUnit.SECONDS);
+            if (controllerWithHooks.getController() != null)
+                return controllerWithHooks;
 
-            Controller controller = getJoystickFuture.get(5, TimeUnit.SECONDS);
-            if (controller == null)
-                throw new MatlabError("Joystick is not connected.");
-            return controller;
-
-        } catch (InterruptedException e) {
-        } catch (ExecutionException e) {
         } catch (TimeoutException e) {
+            throw new MatlabError("Controller search timed out.");
+        } catch (Exception e) {
+            throw new MatlabError("Could not get joystick. Message: " + e.getMessage());
         } finally {
-            getJoystickFuture.cancel(true);
+            // Make sure all invalid cases get cleaned up immediately
+            if (controllerWithHooks != null && controllerWithHooks.getController() == null) {
+                controllerWithHooks.close();
+            }
         }
-        throw new MatlabError("Controller search timed out. Limit may have been reached.");
+        throw new MatlabError("Joystick is not connected.");
 
     }
 
-    private static final ExecutorService executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r);
-            t.setDaemon(true);
-            t.setName("HebiJoystick Controller Lookup");
-            return t;
-        }
-    });
-
+    private final ControllerWithHooks nativeControllerWithHooks;
     private final Controller joystick;
 
     private final HashMap<Component, Integer> buttonIndex = new HashMap<Component, Integer>();

@@ -3,19 +3,29 @@ package us.hebi.matlab.input;
 import net.java.games.input.Controller;
 import net.java.games.input.ControllerEnvironment;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 /**
- * Various utilities to work around JInput
+ * Various utilities to work around JInput limitations. The MATLAB library is using JInput in a
+ * very atypical way, i.e., joysticks can be disconnected at any time, users may instantiate the
+ * same joystick multiple times, etc.
+ * <p>
+ * Doing this requires low-level access for cleaning up native resources that is not supported
+ * by vanilla JInput. We can work around this by accessing private fields using reflection, but
+ * this makes the code brittle and difficult to test.
  *
  * @author Florian Enner < florian @ hebirobotics.com >
  * @since 20 Jan 2017
@@ -73,7 +83,7 @@ public class JInputUtils {
      *
      * @return default environment for input controllers
      */
-    public static ControllerEnvironment createDefaultEnvironment() {
+    private static ControllerEnvironment createDefaultEnvironment() {
 
         try {
             // Find constructor (class is package private, so we can't access it directly)
@@ -87,12 +97,9 @@ public class JInputUtils {
             // Create object with default constructor
             return constructor.newInstance();
 
-        } catch (ClassNotFoundException e) {
-        } catch (IllegalAccessException e) {
-        } catch (InstantiationException e) {
-        } catch (InvocationTargetException e) {
+        } catch (Exception e) {
+            throw new AssertionError("Could not create controller environment. Message: " + e.getMessage());
         }
-        throw new AssertionError("Could not create controller environment");
 
     }
 
@@ -102,7 +109,7 @@ public class JInputUtils {
      * to test, but there doesn't seem to be another way. Also, some controllers
      * don't have a way to close native resources at all.
      */
-    static void closeNativeResource(Controller controller) {
+    static void closeNativeDevice(Controller controller) {
 
         try {
 
@@ -121,8 +128,8 @@ public class JInputUtils {
 
             } else if (isAssignableFrom("LinuxCombinedController", controller)) {
 
-                closeNativeResource((Controller) controller.getClass().getDeclaredField("eventController").get(controller));
-                closeNativeResource((Controller) controller.getClass().getDeclaredField("joystickController").get(controller));
+                closeNativeDevice((Controller) controller.getClass().getDeclaredField("eventController").get(controller));
+                closeNativeDevice((Controller) controller.getClass().getDeclaredField("joystickController").get(controller));
 
             } else {
                 System.err.println("Close not implemented for: " + controller.getClass().getSimpleName());
@@ -145,6 +152,116 @@ public class JInputUtils {
         Method releaseMethod = nativeDevice.getClass().getMethod(releaseMethodName);
         releaseMethod.setAccessible(true);
         releaseMethod.invoke(nativeDevice);
+    }
+
+    /**
+     * Some environments add shutdown hooks that would cause a memory leak. We
+     * also find controllers asynchronously so that we can recover from getting stuck
+     * if something goes wrong in native code.
+     */
+    public static ControllerWithHooks getJoystickOrTimeout(final int matlabId, long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+
+        Future<ControllerWithHooks> getJoystickFuture = lookupExecutor.submit(new Callable<ControllerWithHooks>() {
+            int id = matlabId; // 1 indexed
+
+            @Override
+            public ControllerWithHooks call() throws Exception {
+
+                Controller[] controllers;
+                List<Thread> addedHooks;
+
+                // Create environment and remove any shutdown hooks that were added
+                Class clazz = Class.forName("java.lang.ApplicationShutdownHooks");
+                Field hookField = clazz.getDeclaredField("hooks");
+                hookField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                IdentityHashMap<Thread, Thread> hooks = (IdentityHashMap<Thread, Thread>) hookField.get(null);
+                synchronized (clazz) { // static add/remove methods synchronize on class object
+
+                    // Create new environment
+                    List<Thread> previousHooks = new ArrayList<Thread>(hooks.keySet());
+                    controllers = JInputUtils.createDefaultEnvironment().getControllers();
+
+                    // Get all newly added hooks
+                    addedHooks = new ArrayList<Thread>(hooks.keySet());
+                    addedHooks.removeAll(previousHooks);
+
+                    // Remove new hooks from app shutdown
+                    for (Thread hook : addedHooks) {
+                        hooks.remove(hook);
+                        hook.setDaemon(true);
+                    }
+
+                }
+
+                // Find controller
+                for (Controller controller : controllers) {
+                    if (isJoystick(controller.getType()) && --id == 0) {
+                        return new ControllerWithHooks(controller, addedHooks);
+                    }
+                }
+                return new ControllerWithHooks(null, addedHooks);
+
+            }
+        });
+
+        try {
+            return getJoystickFuture.get(timeout, unit);
+        } finally {
+            getJoystickFuture.cancel(true);
+        }
+    }
+
+    private static boolean isJoystick(Controller.Type type) {
+        return type == Controller.Type.GAMEPAD || type == Controller.Type.STICK;
+    }
+
+    private static final ExecutorService lookupExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("HebiJoystick Controller Lookup");
+            return t;
+        }
+    });
+
+    static class ControllerWithHooks implements Closeable {
+        ControllerWithHooks(Controller controller, Collection<Thread> shutdownHooks) {
+            this.controller = controller;
+            this.shutdownHooks = shutdownHooks;
+        }
+
+        public Controller getController() {
+            return controller;
+        }
+
+        private final Controller controller;
+        private final Collection<Thread> shutdownHooks;
+        private boolean isClosed = false;
+
+        @Override
+        public synchronized void close() {
+            if (isClosed) return;
+            isClosed = true;
+
+            // Run environment shutdown hooks
+            for (Thread hook : shutdownHooks) {
+                hook.start();
+            }
+            for (Thread hook : shutdownHooks) {
+                try {
+                    hook.join(1000);
+                } catch (InterruptedException e) {
+                    System.err.println("Environment shutdown timed out");
+                }
+            }
+
+            // Release native device
+            if (controller != null) {
+                closeNativeDevice(controller);
+            }
+        }
     }
 
 }
