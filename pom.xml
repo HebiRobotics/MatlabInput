@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>us.hebi.matlab</groupId>
+    <version>1.0-SNAPSHOT</version>
+    <artifactId>joystick</artifactId>
+
+    <name>HebiInput</name>
+    <description>MATLAB utilities for device input</description>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Florian Enner</name>
+            <email>florian@hebirobotics.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/HebiRobotics/HebiJoystick</url>
+        <connection>scm:git:git://github.com/HebiRobotics/HebiJoystick.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/HebiRobotics/HebiJoystick.git</developerConnection>
+    </scm>
+
+    <properties>
+        <releaseName>hebi-${project.artifactId}-${project.version}</releaseName>
+
+        <!-- Dependency versions. KEEP IN ALPHABETICAL ORDER-->
+        <junit.version>4.11</junit.version>
+        <jinput.version>2.0.6</jinput.version>
+
+        <!-- Default to minimum Java version compatible with MATLAB >2009a -->
+        <maven.compiler.source>1.6</maven.compiler.source>
+        <maven.compiler.target>1.6</maven.compiler.target>
+
+        <!-- Other Properties -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+
+        <dependency> <!-- Java Joystick Input -->
+            <groupId>net.java.jinput</groupId>
+            <artifactId>jinput</artifactId>
+            <version>${jinput.version}</version>
+        </dependency>
+
+        <dependency> <!-- Java Joystick JNI Binaries (Windows) -->
+            <groupId>net.java.jinput</groupId>
+            <artifactId>jinput-platform</artifactId>
+            <version>${jinput.version}</version>
+            <classifier>natives-windows</classifier>
+            <scope>provided</scope>
+        </dependency>
+        <dependency> <!-- Java Joystick JNI Binaries (Linux) -->
+            <groupId>net.java.jinput</groupId>
+            <artifactId>jinput-platform</artifactId>
+            <version>${jinput.version}</version>
+            <classifier>natives-linux</classifier>
+            <scope>provided</scope>
+        </dependency>
+        <dependency> <!-- Java Joystick JNI Binaries (Mac OSX) -->
+            <groupId>net.java.jinput</groupId>
+            <artifactId>jinput-platform</artifactId>
+            <version>${jinput.version}</version>
+            <classifier>natives-osx</classifier>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency> <!-- Unit Tests -->
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin> <!-- Builds a jar that includes all runtime dependencies -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <finalName>${releaseName}</finalName>
+                </configuration>
+            </plugin>
+
+            <plugin> <!-- Change MATLAB script to reference the correct jar file -->
+                <groupId>com.google.code.maven-replacer-plugin</groupId>
+                <artifactId>replacer</artifactId>
+                <version>1.5.2</version>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>replace</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <basedir>${project.build.directory}/classes/matlab/</basedir>
+                    <includes>
+                        <include>HebiJoystick.m</include>
+                    </includes>
+                    <replacements>
+                        <replacement>
+                            <token>%RELEASE_NAME%</token>
+                            <value>${releaseName}</value>
+                        </replacement>
+                    </replacements>
+                </configuration>
+            </plugin>
+
+            <plugin> <!-- Creates a release zip file-->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.0.0</version>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/main/assembly/release.xml</descriptor>
+                    </descriptors>
+                    <finalName>${releaseName}</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
