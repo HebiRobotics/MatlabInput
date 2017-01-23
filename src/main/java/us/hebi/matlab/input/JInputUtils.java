@@ -130,8 +130,8 @@ public class JInputUtils {
 
             } else if (isAssignableFrom("LinuxCombinedController", controller)) {
 
-                closeNativeDevice((Controller) controller.getClass().getDeclaredField("eventController").get(controller));
-                closeNativeDevice((Controller) controller.getClass().getDeclaredField("joystickController").get(controller));
+                closeNativeDevice((Controller) getFieldValue(controller, "eventController"));
+                closeNativeDevice((Controller) getFieldValue(controller, "joystickController"));
 
             } else {
                 System.err.println("Close not implemented for: " + controller.getClass().getSimpleName());
@@ -147,10 +147,14 @@ public class JInputUtils {
         return Class.forName("net.java.games.input." + simpleClassName).isAssignableFrom(object.getClass());
     }
 
+    private static Object getFieldValue(Object object, String fieldName) throws IllegalAccessException, NoSuchFieldException {
+        Field field = object.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(object);
+    }
+
     private static void getDeviceAndRelease(Controller controller, String deviceFieldName, String releaseMethodName) throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        Field deviceField = controller.getClass().getDeclaredField(deviceFieldName);
-        deviceField.setAccessible(true);
-        Object nativeDevice = deviceField.get(controller);
+        Object nativeDevice = getFieldValue(controller, deviceFieldName);
         Method releaseMethod = nativeDevice.getClass().getMethod(releaseMethodName);
         releaseMethod.setAccessible(true);
         releaseMethod.invoke(nativeDevice);
