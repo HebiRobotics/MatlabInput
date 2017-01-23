@@ -7,8 +7,7 @@ import net.java.games.input.Event;
 import net.java.games.input.EventQueue;
 import net.java.games.input.Rumbler;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -111,17 +110,36 @@ public class HebiJoystick {
         // Select joystick
         joystick = getJoystick(matlabId);
 
+        List<Component> unsortedAxes = new ArrayList<Component>(10);
+
         // Create lookup tables
         for (Component component : joystick.getComponents()) {
             if (isPOV(component)) {
                 povIndex.put(component, povIndex.size());
             } else if (isAxis(component)) {
-                axisIndex.put(component, axisIndex.size());
+                unsortedAxes.add(component);
             } else if (isButton(component)) {
+                // Buttons seem to always be ordered the same way as vrjoystick's
                 buttonIndex.put(component, buttonIndex.size());
             }
         }
         this.rumblers = joystick.getRumblers();
+
+        // Sort axes (vrjoystick orders x,y,z,rx,ry,rz)
+        Collections.sort(unsortedAxes, new Comparator<Component>() {
+            @Override
+            public int compare(Component o1, Component o2) {
+                String n1 = o1.getIdentifier().getName();
+                String n2 = o2.getIdentifier().getName();
+                if (n1.length() != n2.length()) // shorter strings first
+                    return n1.length() - n2.length();
+                return n1.compareToIgnoreCase(n2); // alphabetical order
+            }
+        });
+        // Build index
+        for (Component component : unsortedAxes) {
+            axisIndex.put(component, axisIndex.size());
+        }
 
         // Create initial states zeroes for axes and -1 for povs
         axes = new double[axisIndex.size()];
