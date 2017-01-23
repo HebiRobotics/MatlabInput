@@ -31,74 +31,62 @@ public class CloseableController implements Controller, Closeable {
 
     @Override
     public synchronized void close() {
-        if (isClosed) return;
+        if (isClosed)
+            return;
         isClosed = true;
         JInputUtils.runShutdownHooks(shutdownHooks);
         JInputUtils.closeNativeDevice(controller);
     }
 
-    private synchronized void checkOpen() {
+    @Override
+    public synchronized boolean poll() {
         if (isClosed)
             throw new MatlabError("Joystick device error: Closed or invalid joystick device");
-    }
-
-    @Override
-    public boolean poll() {
-        checkOpen();
         return controller.poll();
     }
 
     @Override
     public Controller[] getControllers() {
-        checkOpen();
         return controller.getControllers();
     }
 
     @Override
     public Type getType() {
-        checkOpen();
         return controller.getType();
     }
 
     @Override
     public Component[] getComponents() {
-        checkOpen();
         return controller.getComponents();
     }
 
     @Override
     public Component getComponent(Component.Identifier id) {
-        checkOpen();
         return controller.getComponent(id);
     }
 
     @Override
     public Rumbler[] getRumblers() {
-        checkOpen();
         return controller.getRumblers();
     }
 
     @Override
     public void setEventQueueSize(int size) {
-        checkOpen();
         controller.setEventQueueSize(size);
     }
 
     @Override
     public EventQueue getEventQueue() {
-        checkOpen();
         return controller.getEventQueue();
     }
 
     @Override
     public PortType getPortType() {
-        checkOpen();
         return controller.getPortType();
     }
 
     @Override
     public int getPortNumber() {
-        checkOpen();
         return controller.getPortNumber();
     }
 
