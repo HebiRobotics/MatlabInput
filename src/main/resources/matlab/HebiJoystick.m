@@ -79,7 +79,11 @@ classdef (Sealed) HebiJoystick < handle
             % Create backing Java object
             HebiJoystick.loadLibs();
             this.joy = us.hebi.matlab.input.HebiJoystick(index);
-            this.joy.setEventQueueSize(200); % increase if needed
+            if ~ismac()
+                % Increase event queue to not have to poll as often.
+                % Doesn't work on mac.
+                this.joy.setEventQueueSize(200);
+            end
             
             % Set properties
             caps = this.caps();
