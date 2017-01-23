@@ -14,6 +14,13 @@ HebiJoystick is joystick input library for MATLAB that serves as a mostly drop-i
 * Extract the .zip file into a folder of your choice
 * Add the unzipped files to the [MATLAB path](http://www.mathworks.com/help/matlab/ref/path.html)
 
+* The underlying libraries are typically loaded automatically at the first call. However, if you are using other Java libraries, e.g., 
+[HebiCam](https://github.com/HebiRobotics/HebiCam) or the [Hebi API](http://hebirobotics.com/matlab), it is better to load all libraries before instantiating any objects.
+
+```matlab
+HebiJoystick.loadLibs();
+```
+
 ## Usage
 
 Create joystick and react to button presses.
