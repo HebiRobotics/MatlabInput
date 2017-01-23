@@ -7,6 +7,7 @@ HebiJoystick is joystick input library for MATLAB that serves as a mostly drop-i
 * The order of axes and buttons may be different from vrjoystick
 * The order of axes and buttons may differ between operating systems
 * There is a maximum number of events that can occur between reads. If reads don't happen frequently enough, the returned state may not match the real physical state. A polling rate of about once per second should be sufficient for the default settings.
+* On some operating systems going into sleep mode while executing a script that reads from the joystick may make MATLAB seem unresponsive. Ctrl-C works eventually, but it may take on the order of minutes to recover.
 
 ## Installation
 
