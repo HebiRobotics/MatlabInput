@@ -1,11 +1,11 @@
 # HebiJoystick
 
-HebiJoystick is joystick input library for MATLAB that serves as a mostly drop-in replacement for [vrjoystick](https://www.mathworks.com/help/sl3d/vrjoystick.html). It is intended for people who don't have access to the [3D Animation Toolbox](https://www.mathworks.com/products/3d-animation.html). 
+HebiJoystick is a joystick input library for MATLAB that serves as a drop-in replacement for [vrjoystick](https://www.mathworks.com/help/sl3d/vrjoystick.html). It is intended for people who don't have access to the [3D Animation Toolbox](https://www.mathworks.com/products/3d-animation.html). 
 
 ## Notes
 
-* The order of axes and buttons may be different from vrjoystick
-* The order of axes and buttons may differ between operating systems
+* The order of axes / buttons / povs should be the same as vrjoystick
+* The number of axes / buttons / povs may differ between operating systems
 * There is a maximum number of events that can occur between reads. If reads don't happen frequently enough, the returned state may not match the real physical state. A polling rate of about once per second should be sufficient for the default settings.
 * On some operating systems going into sleep mode while executing a script that reads from the joystick may make MATLAB seem unresponsive. Ctrl-C works eventually, but it may take on the order of minutes to recover.
 
@@ -31,7 +31,7 @@ joy = HebiJoystick(1);
 while true
   [axes, buttons, povs] = read(joy);
   if any(buttons)
-    disp('one or more buttons are pressed down');
+    disp(['Pressed buttons: ' num2str(find(buttons))]);
   end
   pause(0.1);
 end
