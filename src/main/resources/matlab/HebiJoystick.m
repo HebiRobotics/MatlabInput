@@ -144,16 +144,16 @@ classdef (Sealed) HebiJoystick < handle
         end
         
     end
-
+    
     % Hide inherited methods (handle) from auto-complete
     % and docs
-     methods(Access = public, Hidden = true)
-
+    methods(Access = public, Hidden = true)
+        
         function [] = delete(this)
-            %destructor disposes this instance
+            % destructor disposes this instance
             close(this);
         end
-
+        
         function varargout = addlistener(varargin)
             varargout{:} = addlistener@handle(varargin{:});
         end
@@ -184,7 +184,7 @@ classdef (Sealed) HebiJoystick < handle
         function varargout = notify(varargin)
             varargout{:} = notify@handle(varargin{:});
         end
-
-        end
+        
+    end
     
 end
