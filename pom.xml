@@ -122,6 +122,7 @@
                     <basedir>${project.build.directory}/classes/matlab/</basedir>
                     <includes>
                         <include>HebiJoystick.m</include>
+                        <include>HebiKeyboard.m</include>
                     </includes>
                     <replacements>
                         <replacement>
