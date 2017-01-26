@@ -19,20 +19,13 @@ HebiKeyboard.loadLibs();
 
 HebiKeyboard provides a way to get keyboard input in a non-blocking manner. The default driver is based on Java-AWT and requires focus on a MATLAB window, i.e., the console, an editor window, or a figure. Note that inputs from all keyboards are combined.
 
-Alternatively, the optional 'native' driver uses [JInput](https://github.com/jinput/jinput) binaries and may support the selection of individual keyboards as well as reading input when MATLAB is runnin in the background. Note that this is not the default behavior because of security concerns, e.g., displaying pressed keys while entering passwords into a browser window.
-
-| OS      | Requires Focus   | Selectable Keyboard |
-|---------|------------------|---------------------|
-| Windows | No               | No                  |
-| OSX     | No               | Yes                 |
-| Linux   | N/A (needs sudo) | N/A (needs sudo)    |
-
 ### Usage
 
-Do something whenever letter 'x' and the number '0' are pressed at the same time.
+The 'read' method returns a snapshot of the current state of various standard and meta keys. Numbers and letters can be queried by indexing into a key vector. Meta keys are exposed directly as fields in the returned struct.
+
+Display a message whenever letter 'x' and the number '0' are pressed at the same time.
 
 ```matlab
-% Check if button 'x' is pressed
 kb = HebiKeyboard();
 while true
     state = read(kb);
@@ -57,24 +50,31 @@ while true
 end
 ```
 
-### Notes
+### Driver Selection
 
+Alternatively, users can choose to use a 'native' driver (based on [JInput](https://github.com/jinput/jinput) binaries) that may support the selection of individual keyboards and may allow reading input when MATLAB is running in the background.
 
+| OS      | Requires Focus   | Selectable Keyboard |
+|---------|------------------|---------------------|
+| Windows | No               | No                  |
+| OSX     | No               | Yes                 |
+| Linux   | N/A (needs sudo) | N/A (needs sudo)    |
+
+Note that this is not the default behavior because of security concerns, e.g., displaying pressed keys while entering passwords into a browser window.
+
+```matlab
+deviceId = 1;
+kb = HebiKeyboard('native', deviceId);
+state = read(kb);
+```
 
 ## HebiJoystick
 
 HebiJoystick is intended for people who don't have access to the [3D Animation Toolbox](https://www.mathworks.com/products/3d-animation.html) and serves as a drop-in replacement for [vrjoystick](https://www.mathworks.com/help/sl3d/vrjoystick.html).
 
-### Notes
-
-* The order of axes / buttons / povs should be the same as vrjoystick
-* The number of axes / buttons / povs may differ between operating systems
-* There is a maximum number of events that can occur between reads. If reads don't happen frequently enough, the returned state may not match the real physical state. A polling rate of about once per second should be sufficient for the default settings.
-* On some operating systems going into sleep mode while executing a script that reads from the joystick may make MATLAB seem unresponsive. Ctrl-C works eventually, but it may take on the order of minutes to recover.
-
 ### Usage
 
-Create joystick and react to button presses.
+Create a joystick and react to button presses.
 
 ```matlab
 joy = HebiJoystick(1);
@@ -90,6 +90,12 @@ end
 See [vrjoystick](https://www.mathworks.com/help/sl3d/vrjoystick.html) documentation for more information.
 
 ![comparison](https://github.com/HebiRobotics/MatlabInput/raw/resources/comparison.png)
+
+## Notes
+
+* There is a maximum number of events that can occur between reads. If reads don't happen frequently enough, the returned state may not match the real physical state.
+* On some operating systems going into sleep mode while executing a script that reads from the joystick may make MATLAB seem unresponsive. Ctrl-C works eventually, but it may take on the order of minutes to recover.
+* The number and behavior of joystick axes / buttons / povs may differ between operating systems
 
 ## Building from source
 
