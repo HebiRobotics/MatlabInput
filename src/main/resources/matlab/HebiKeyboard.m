@@ -1,5 +1,50 @@
 classdef (Sealed) HebiKeyboard < handle
-  
+    % HebiKeyboard creates a keyboard object
+    %
+    %   HebiKeyboard provides a way to get keyboard input
+    %   in a non-blocking manner. The default driver requires
+    %   focus on a window that is owned by MATLAB, i.e., the editor,
+    %   the console, or any figure.
+    %
+    %   The read method returns a struct that contains a vector of 
+    %   ascii keys (letters and numbers), as well as meta keys like CTRL,
+    %   SHIFT, and ALT.
+    %
+    %   The key vector is laid out such that MATLAB can index it with
+    %   ascii characters, i.e., state.keys('wasd') returns a vector of the
+    %   states for the selected chracters. Upper and lower case characters
+    %   are treated the same.
+    %
+    %   Example
+    %       % Check if button 'x' is pressed
+    %       kb = HebiKeyboard();
+    %       while true
+    %           state = read(kb);
+    %           if state.keys('x')
+    %               disp('X is pressed!')
+    %           end
+    %           pause(0.01);
+    %       end
+    %
+    %   Example
+    %       % Show all pressed letters whenever SHIFT is up
+    %       kb = HebiKeyboard();
+    %       while true
+    %           state = read(kb);
+    %           down = find(state.keys('a':'z')) + 'a';
+    %           if ~state.SHIFT
+    %               disp(char(down));
+    %           end
+    %           pause(0.01);
+    %       end
+    %
+    %   Example
+    %       % Select first keyboard with native driver
+    %       kb = HebiKeyboard('native', 1);
+    %       state = read(kb);
+
+    % Copyright (c) 2016-2017 HEBI Robotics
+    
     properties (SetAccess = private)
         Name
     end
@@ -10,44 +55,25 @@ classdef (Sealed) HebiKeyboard < handle
     
     methods (Static, Access = public)
         function loadLibs()
-            % Loads the backing Java files and native binaries. This
-            % method assumes that the jar file is located in the same
-            % directory as this class-script, and that the file name
-            % matches the string below.
-            jarFileName = '%RELEASE_NAME%.jar';
-            
-            % Load only once
-            if ~exist('us.hebi.matlab.input.HebiKeyboard', 'class')
-                
-                localDir = fileparts(mfilename('fullpath'));
-                
-                % Add binary libs
-                java.lang.System.setProperty(...
-                    'net.java.games.input.librarypath', ...
-                    fullfile(localDir, 'lib'));
-                
-                % Add Java library
-                javaaddpath(fullfile(localDir, jarFileName));
-                
-            end
+            HebiJoystick.loadLibs();
         end
     end
     
     methods (Access = public)
         
         function this = HebiKeyboard(driver, index)
-
-            if nargin < 1
-                driver = 'AWT';
-            end
-
+            
             if nargin < 2
                 index = 1;
             end
-           
+            
+            if nargin < 1
+                driver = 'AWT';
+            end
+            
             % Create backing Java object
             HebiKeyboard.loadLibs();
-            this.obj = us.hebi.matlab.input.HebiKeyboard(index, driver);
+            this.obj = us.hebi.matlab.input.HebiKeyboard(driver, index);
             if ~ismac()
                 % Increase event queue to not have to poll as often.
                 % Doesn't work on mac.
@@ -56,13 +82,14 @@ classdef (Sealed) HebiKeyboard < handle
             
             % Set properties
             this.Name = this.obj.getName();
-
+            
         end
         
         function out = read(this)
+            % reads the current key state of the keyboard
             out = struct(read(this.obj));
         end
-
+        
         function [] = close(this)
             % closes and invalidates the keyboard object
             close(this.obj);
