@@ -1,11 +1,8 @@
 package us.hebi.matlab.input;
 
-import net.java.games.input.Component;
+import net.java.games.input.*;
 import net.java.games.input.Component.Identifier;
 import net.java.games.input.Component.POV;
-import net.java.games.input.Event;
-import net.java.games.input.EventQueue;
-import net.java.games.input.Rumbler;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -187,7 +184,7 @@ public class HebiJoystick {
     private static CloseableController getJoystick(int matlabId) {
         CloseableController joystick = null;
         try {
-            joystick = JInputUtils.getJoystickOrTimeout(matlabId, 5, TimeUnit.SECONDS);
+            joystick = JInputUtils.getControllerOrTimeout(matlabId, 5, TimeUnit.SECONDS, isJoystick);
             if (joystick != null)
                 return joystick;
         } catch (TimeoutException e) {
@@ -210,5 +207,15 @@ public class HebiJoystick {
     private final double[][][] matlabCellArray;
 
     private final Rumbler[] rumblers;
+
+    private static final TypeMatcher isJoystick = new TypeMatcher() {
+        @Override
+        public boolean matches(Controller.Type type) {
+            return type == Controller.Type.GAMEPAD ||
+                    type == Controller.Type.STICK ||
+                    type == Controller.Type.FINGERSTICK ||
+                    type == Controller.Type.WHEEL;
+        }
+    };
 
 }

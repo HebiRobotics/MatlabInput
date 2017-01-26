@@ -2,16 +2,17 @@ package us.hebi.matlab.input;
 
 import net.java.games.input.Controller;
 import net.java.games.input.ControllerEnvironment;
+import net.java.games.input.Keyboard;
 
+import java.awt.*;
+import java.awt.event.AWTEventListener;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.IdentityHashMap;
+import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.logging.Handler;
@@ -43,9 +44,10 @@ public class JInputUtils {
                     // disable default plugin lookup
                     System.setProperty("jinput.useDefaultPlugin", "false");
 
-                    // set to same as windows 7 (tested for windows 8, 8.1, and 10)
-                    System.setProperty("net.java.games.input.plugins", "net.java.games.input.DirectAndRawInputEnvironmentPlugin");
-                    // net.java.games.input.DirectInputEnvironmentPlugin => for keyboard/mouse events without selecting a window
+                    // use direct input for windows (tested for windows 7, 8, 8.1, and 10)
+                    // the usual default for Windows 7 is DirectAndRawInputEnvironmentPlugin, but we had some
+                    // problems with raw input and keyboards. Also, there is no resource management for raw devices.
+                    System.setProperty("net.java.games.input.plugins", "net.java.games.input.DirectInputEnvironmentPlugin");
 
                 }
                 return null;
@@ -84,7 +86,7 @@ public class JInputUtils {
      *
      * @return default environment for input controllers
      */
-    private static ControllerEnvironment createDefaultEnvironment() {
+    static ControllerEnvironment createDefaultEnvironment() {
 
         try {
             // Find constructor (class is package private, so we can't access it directly)
@@ -111,22 +113,33 @@ public class JInputUtils {
      * don't have a way to close native resources at all.
      */
     static void closeNativeDevice(Controller controller) {
-        if (controller == null)  throw new IllegalArgumentException("null argument");
+        if (controller == null) throw new IllegalArgumentException("null argument");
 
         try {
 
-            if (isAssignableFrom("DIAbstractController", controller)) {
+            if (isAssignableFrom("AWTKeyboard", controller) || isAssignableFrom("AWTMouse", controller)) {
 
-                getDeviceAndRelease(controller, "device", "release"); // DirectInput
+                // Java (all)
+                Toolkit.getDefaultToolkit().removeAWTEventListener((AWTEventListener) controller);
 
-            } else if (isAssignableFrom("OSXAbstractController", controller)) {
+            } else if (isAssignableFrom("DIAbstractController", controller)
+                    || isAssignableFrom("DIKeyboard", controller)) {
 
-                getDeviceAndRelease(controller, "queue", "release"); // OSX
+                // Windows (DirectInput)
+                getDeviceAndRelease(controller, "device", "release");
+
+            } else if (isAssignableFrom("OSXAbstractController", controller)
+                    || isAssignableFrom("OSXKeyboard", controller)) {
+
+                // OSX
+                getDeviceAndRelease(controller, "queue", "release");
 
             } else if (isAssignableFrom("LinuxAbstractController", controller)
-                    || isAssignableFrom("LinuxJoystickAbstractController", controller)) {
+                    || isAssignableFrom("LinuxJoystickAbstractController", controller)
+                    || isAssignableFrom("LinuxKeyboard", controller)) {
 
-                getDeviceAndRelease(controller, "device", "close"); // Linux
+                // Linux
+                getDeviceAndRelease(controller, "device", "close");
 
             } else if (isAssignableFrom("LinuxCombinedController", controller)) {
 
@@ -182,9 +195,9 @@ public class JInputUtils {
      * Native environments also sometimes get stuck, so we do the call asynchronously so that we can
      * recover via timeouts.
      */
-    public static CloseableController getJoystickOrTimeout(final int matlabId, long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    public static CloseableController getControllerOrTimeout(final int matlabId, long timeout, TimeUnit unit, final TypeMatcher typeMatcher) throws InterruptedException, ExecutionException, TimeoutException {
 
-        Future<CloseableController> getJoystickFuture = lookupExecutor.submit(new Callable<CloseableController>() {
+        Future<CloseableController> getControllerFuture = lookupExecutor.submit(new Callable<CloseableController>() {
             int id = matlabId; // 1 indexed
 
             @Override
@@ -219,7 +232,7 @@ public class JInputUtils {
 
                 // Find controller
                 for (Controller controller : controllers) {
-                    if (isJoystick(controller.getType()) && --id == 0) {
+                    if (typeMatcher.matches(controller.getType()) && --id == 0) {
                         return new CloseableController(controller, addedHooks);
                     }
                 }
@@ -232,17 +245,10 @@ public class JInputUtils {
         });
 
         try {
-            return getJoystickFuture.get(timeout, unit);
+            return getControllerFuture.get(timeout, unit);
         } finally {
-            getJoystickFuture.cancel(true);
+            getControllerFuture.cancel(true);
         }
-    }
-
-    private static boolean isJoystick(Controller.Type type) {
-        return type == Controller.Type.GAMEPAD ||
-                type == Controller.Type.STICK ||
-                type == Controller.Type.FINGERSTICK ||
-                type == Controller.Type.WHEEL;
     }
 
     private static final ExecutorService lookupExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
@@ -254,5 +260,20 @@ public class JInputUtils {
             return t;
         }
     });
+
+    public static CloseableController createAWTKeyboard() {
+        // AWTKeyboard is non public and AWTEnvironmentPlugin instantiates a mouse that we would need to clean up.
+        Controller keyboard = null;
+        try {
+            @SuppressWarnings("unchecked")
+            Constructor<Controller> constructor = (Constructor<Controller>) Class.forName("net.java.games.input.AWTKeyboard")
+                    .getDeclaredConstructors()[0];
+            constructor.setAccessible(true);
+            // gets cleaned up in closeNativeDevice
+            return new CloseableController(constructor.newInstance(), Collections.<Thread>emptyList());
+        } catch (Exception e) {
+            throw new AssertionError("Could not create AWTKeyboard. Message: " + e.getMessage());
+        }
+    }
 
 }
