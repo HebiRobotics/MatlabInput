@@ -7,10 +7,10 @@
 
     <groupId>us.hebi.matlab</groupId>
     <version>1.2-SNAPSHOT</version>
-    <artifactId>joystick</artifactId>
+    <artifactId>input</artifactId>
 
-    <name>hebi-joystick</name>
-    <description>MATLAB utilities for device input</description>
+    <name>matlab-input</name>
+    <description>MATLAB library for joystick and keyboard input</description>
 
     <licenses>
         <license>
