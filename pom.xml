@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>us.hebi.matlab</groupId>
-    <version>1.2-SNAPSHOT</version>
+    <version>1.2</version>
     <artifactId>input</artifactId>
 
     <name>matlab-input</name>
@@ -28,9 +28,9 @@
     </developers>
 
     <scm>
-        <url>https://github.com/HebiRobotics/HebiJoystick</url>
-        <connection>scm:git:git://github.com/HebiRobotics/HebiJoystick.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/HebiRobotics/HebiJoystick.git</developerConnection>
+        <url>https://github.com/HebiRobotics/MatlabInput</url>
+        <connection>scm:git:git://github.com/HebiRobotics/MatlabInput.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/HebiRobotics/MatlabInput.git</developerConnection>
     </scm>
 
     <properties>
