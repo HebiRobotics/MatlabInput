@@ -35,11 +35,19 @@ classdef (Sealed) HebiKeyboard < handle
     
     methods (Access = public)
         
-        function this = HebiKeyboard(index)
+        function this = HebiKeyboard(driver, index)
+
+            if nargin < 1
+                driver = 'AWT';
+            end
+
+            if nargin < 2
+                index = 1;
+            end
            
             % Create backing Java object
             HebiKeyboard.loadLibs();
-            this.obj = us.hebi.matlab.input.HebiKeyboard(index);
+            this.obj = us.hebi.matlab.input.HebiKeyboard(index, driver);
             if ~ismac()
                 % Increase event queue to not have to poll as often.
                 % Doesn't work on mac.
@@ -51,8 +59,8 @@ classdef (Sealed) HebiKeyboard < handle
 
         end
         
-        function varargout = read(this)
-            varargout = read(this.obj);
+        function out = read(this)
+            out = struct(read(this.obj));
         end
 
         function [] = close(this)
