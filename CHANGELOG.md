@@ -1,3 +1,7 @@
+### 1.2 (Jan 26, 2017)
+* Added support for keyboards
+* Changed project name from HebiJoystick to MatlabInput
+
 ### 1.1 (Jan 24, 2017)
 * Added resource cleanup
 * Changed axis ordering to match vrjoystick (buttons and povs already did)
