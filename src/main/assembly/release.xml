@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
@@ -7,18 +8,31 @@
         <format>tar.gz</format>
         <format>dir</format>
     </formats>
-    <includeBaseDirectory>false</includeBaseDirectory>
+    <includeBaseDirectory>true</includeBaseDirectory>
     <fileSets>
+        <!-- Copy Readme, License -->
+        <fileSet>
+            <directory>${project.basedir}/</directory>
+            <includes>
+                <include>README*</include>
+                <include>LICENSE*</include>
+            </includes>
+        </fileSet>
         <!-- Copy backing MATLAB scripts -->
         <fileSet>
             <directory>${project.build.directory}/classes/matlab/</directory>
-            <outputDirectory>hebi/</outputDirectory>
+            <outputDirectory>matlab/</outputDirectory>
             <lineEnding>dos</lineEnding>
+        </fileSet>
+        <!-- Copy backing Simulink scripts -->
+        <fileSet>
+            <directory>${project.build.directory}/classes/simulink/</directory>
+            <outputDirectory>simulink/</outputDirectory>
         </fileSet>
         <!-- Copy Java library (includes all Java dependencies) -->
         <fileSet>
-            <directory>${project.build.directory}</directory>
-            <outputDirectory>hebi/</outputDirectory>
+            <directory>${project.build.directory}/</directory>
+            <outputDirectory>matlab/</outputDirectory>
             <includes>
                 <include>${releaseName}.jar</include>
             </includes>
@@ -27,7 +41,7 @@
     <dependencySets>
         <!-- Copy native binaries into lib directory -->
         <dependencySet>
-            <outputDirectory>hebi/lib/</outputDirectory>
+            <outputDirectory>matlab/lib/</outputDirectory>
             <useProjectArtifact>true</useProjectArtifact>
             <unpack>true</unpack>
             <scope>provided</scope>
@@ -37,7 +51,3 @@
         </dependencySet>
     </dependencySets>
 </assembly>
-
-
-
-

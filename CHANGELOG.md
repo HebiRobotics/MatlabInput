@@ -1,3 +1,6 @@
+### 1.2.1 (Jan 12, 2023)
+* Added Simulink library for HebiJoystick
+
 ### 1.2 (Jan 26, 2017)
 * Added support for keyboards
 * Changed project name from HebiJoystick to MatlabInput
